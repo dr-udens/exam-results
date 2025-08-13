@@ -13,6 +13,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Data obtained from <https://www.viaa.gov.lv/lv/valsts-parbaudes-darbu-statistika>
 
+[Add description of data!!]
+
 # Cleaning the data
 Renaming data so important column names match between the two types of exams and important fields do not contain special characters.
 
@@ -30,7 +32,8 @@ colnames(al)[colnames(al) == 'Urbanizācija'] <- 'Urbanizacija'
 colnames(ol)[colnames(ol) == 'Urbanizācija'] <- 'Urbanizacija'
 ```
 
-Remove unnecessary columns
+Remove unnecessary columns.
+
 ```{r clean}
 ol$N.p.k. <- NULL
 ol$Norise <- NULL
@@ -47,56 +50,85 @@ al$`Procenti kopā` <- NULL
 ```
 
 Add missing columns so data frames for MATOL and MATAL can be merged into one.
+
 ```{r, merge}
 ol$`3 dala` <- as.double(NA)
 ol$`4 dala` <- as.double(NA)
 data <- rbind(ol, al)
 ```
 
-Then split data into multiple frames based on urbanization and type of school. Data from persons taking the exam at a university will be omitted later because of irrelavance to the research question.
-```{r, split}
+# Descriptive Data Analysis
+
+Let's compare the number of people taking the exam in each type of school. Rows are Riga, then state significance cities, regional significance cities and finally countryside. Columns are secondary school, distance learning secondary school, state gymnasium, professional education and University of Latvia. Note that in University of Latvia only people already with a secondary school diploma take exams.
+
+```{r proportions}
+library(pander)
+proportions <- table (data$Urbanizacija, data$Tips)
+rownames(proportions) <- c("Riga", "State city", "Regional city", "Countryside")
+colnames(proportions) <- c("Secondary", "Distance", "Gymnasium", "Pofessional ed", "UL")
+pander(proportions, caption = "Number of Exam Takers")
+```
+Let's calculate the mean scores of the first part of the exam. The maximum number of points in this part was 75.
+
+```{r means1}
 split <- split(data, data$Urbanizacija)
 riga <- split$`1`
 city <- split$`2`
 town <- split$`3`
 country <- split$`4`
-
-split <- split(riga, riga$Tips)
-riga_vsk <- split$`3`
-riga_talm <- split$`4`
-riga_gymn <- split$`6`
-riga_prof <- split$`7`
-LU <- split$`9`
-
-split <- split(city, city$Tips)
-city_vsk <- split$`3`
-city_talm <- split$`4`
-city_gymn <- split$`6`
-city_prof <- split$`7`
-
-split <- split(town, town$Tips)
-town_vsk <- split$`3`
-town_talm <- split$`4`
-town_gymn <- split$`6`
-town_prof <- split$`7`
-
-split <- split(country, country$Tips)
-country_vsk <- split$`3`
-country_talm <- split$`4`
-country_gymn <- split$`6`
-country_prof <- split$`7`
+means <- aggregate(riga$`1 dala`, list(riga$Tips), FUN=mean)
+colnames(means)[colnames(means) == 'Group.1'] <- 'Type'
+colnames(means)[colnames(means) == 'x'] <- 'Riga'
+col <- aggregate(city$`1 dala`, list(city$Tips), FUN=mean)
+col[nrow(col) + 1,] <- c(9, NA)
+means$'City' <- col$'x'
+col <- aggregate(town$`1 dala`, list(town$Tips), FUN=mean)
+col[nrow(col) + 1,] <- c(9, NA)
+means$'Town' <- col$'x'
+col <- aggregate(country$`1 dala`, list(country$Tips), FUN=mean)
+col[nrow(col) + 1,] <- c(9, NA)
+col <- rbind(col[1:2,], c(6, NA), col[-(1:2),])
+means$'Country' <- col$'x'
+means
 ```
+Then do the same for the second part of the exam. The maximum number of points in this part was 25.
 
-# Data Analysis
-
-Let's compare the number of people taking the exam in each type of school. Rows are Riga, then state significance cities, regional significance cities and finally countryside. Columns 3, 4, 6, 7 and 9 are secondary school, distance learning secondary school, state gymnasium, professional education and University of Latvia. Note that in University of Latvia only people with a secondary school education are taking exams.
-
-```{r proportions}
-library(pander)
-proportions <- table (data$Urbanizacija, data$Tips)
-pander(proportions, round = 3, caption = "Number of Exam Takers")
+```{r means2, include=FALSE}
+means <- aggregate(riga$`2 dala`, list(riga$Tips), FUN=mean)
+colnames(means)[colnames(means) == 'Group.1'] <- 'Type'
+colnames(means)[colnames(means) == 'x'] <- 'Riga'
+col <- aggregate(city$`2 dala`, list(city$Tips), FUN=mean)
+col[nrow(col) + 1,] <- c(9, NA)
+means$'City' <- col$'x'
+col <- aggregate(town$`2 dala`, list(town$Tips), FUN=mean)
+col[nrow(col) + 1,] <- c(9, NA)
+means$'Town' <- col$'x'
+col <- aggregate(country$`2 dala`, list(country$Tips), FUN=mean)
+col[nrow(col) + 1,] <- c(9, NA)
+col <- rbind(col[1:2,], c(6, NA), col[-(1:2),])
+means$'Country' <- col$'x'
 ```
+```{r means2results}
+means
+```
+Let's look at the histograms of first part results from secondary schools.
 
+```{r secondary_hist, echo=FALSE}
+rsplit <- split(riga, riga$Tips)
+riga_secondary <- rsplit$'3'
+cisplit <- split(city, city$Tips)
+city_secondary <- cisplit$`3`
+tsplit <- split(town, town$Tips)
+town_secondary <- tsplit$'3'
+cosplit <- split(country, country$Tips)
+country_secondary <- cosplit$'3'
+
+par(mfrow = c(2,2))
+hist(riga_secondary$`1 dala`, probability = TRUE, xlim = c(0, 80), ylim = c(0, 0.03), main ="Riga secondary school scores", xlab = "Part 1 points")
+hist(city_secondary$`1 dala`, probability = TRUE, xlim = c(0, 80), ylim = c(0, 0.03), main ="State cities' secondary school scores", xlab = "Part 1 points")
+hist(town_secondary$`1 dala`, probability = TRUE, xlim = c(0, 80), ylim = c(0, 0.03), main ="Regional cities' secondary school scores", xlab = "Part 1 points")
+hist(country_secondary$`1 dala`, probability = TRUE, xlim = c(0, 80), ylim = c(0, 0.03), main ="Countryside secondary school scores", xlab = "Part 1 points")
+```
 
 
 
